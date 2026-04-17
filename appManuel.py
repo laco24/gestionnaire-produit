@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import re
+import copy
 
-# Configuration de la page
 st.set_page_config(page_title="GestionnaireDeProduit", layout="wide")
 
 st.title("Gestionnaire de Produits")
@@ -10,7 +10,7 @@ st.markdown("""
 Saisissez les informations produits ci-dessous.
 """)
 
-# --- INITIALISATION DU SESSION STATE ---
+# --- GESTION DU SESSION STATE ---
 if "liste_produits_manuels" not in st.session_state:
     st.session_state.liste_produits_manuels = []
 
@@ -42,7 +42,30 @@ def supprimer_taille(index_produit):
     if len(st.session_state.liste_produits_manuels[index_produit]["stocks"]) > 1:
         st.session_state.liste_produits_manuels[index_produit]["stocks"].pop()
 
-# --- SIDEBAR : PARAMÈTRES GÉNÉRAUX ---
+@st.dialog("Copier un produit existant")
+def copier_produit_dialog():
+    if not st.session_state.liste_produits_manuels:
+        st.write("Aucun produit à copier pour le moment.")
+        if st.button("Fermer"):
+            st.rerun()
+        return
+
+    options = []
+    for idx, p in enumerate(st.session_state.liste_produits_manuels):
+        nom = p['modele'] if p['modele'] else "Sans nom"
+        options.append(f"{idx+1}. {nom}")
+
+    choix = st.selectbox("Quel produit voulez-vous dupliquer ?", options)
+    index_a_copier = options.index(choix)
+
+    st.write("Cela créera un nouveau produit avec exactement les mêmes informations (couleurs, prix, tailles).")
+    
+    if st.button("Confirmer la copie"):
+        nouveau_produit = copy.deepcopy(st.session_state.liste_produits_manuels[index_a_copier])
+        st.session_state.liste_produits_manuels.append(nouveau_produit)
+        st.rerun()
+
+# --- SIDEBAR : PARAM ---
 with st.sidebar:
     st.header("Paramètres")
     Magasin = st.text_input("Code Magasin :", value="REIMS").upper()
@@ -79,13 +102,12 @@ with st.sidebar:
     Poids = st.text_input("Poids :", value="0,7").upper()
     VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=1)
 
-# --- CORPS PRINCIPAL : SAISIE PRODUITS ---
+# --- SAISIES GENERAL ---
 st.subheader("Liste des produits")
 
 for i, produit in enumerate(st.session_state.liste_produits_manuels):
     with st.expander(f"Produit n°{i+1} : {produit['modele'] if produit['modele'] else 'Nouveau Produit'}", expanded=True):
         
-        # Infos de base
         c1, c2 = st.columns(2)
         produit["modele"] = c1.text_input("Modèle", value=produit["modele"], key=f"mod_{i}").upper()
         produit["barcode"] = c2.text_input("Code Barre", value=produit["barcode"], key=f"bar_{i}").upper()
@@ -104,7 +126,6 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
             stock["taille"] = col_t.text_input(f"Taille", value=stock["taille"], key=f"size_{i}_{j}")
             stock["qte"] = col_q.number_input(f"Quantité", value=stock["qte"], key=f"qte_{i}_{j}")
 
-        # Boutons de gestion des tailles
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button(f" + Ajouter une taille", key=f"btn_size_{i}"):
@@ -115,21 +136,23 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
                 supprimer_taille(i)
                 st.rerun()
 
-# Boutons de gestion des produits
 st.divider()
-col_p1, col_p2 = st.columns(2)
+col_p1, col_p2, col_p3 = st.columns(3)
 with col_p1:
     if st.button("AJOUTER UN NOUVEAU PRODUIT", use_container_width=True):
         ajouter_produit()
         st.rerun()
 with col_p2:
+    if st.button("COPIER UN PRODUIT", use_container_width=True):
+        copier_produit_dialog()
+with col_p3:
     if st.button("SUPPRIMER LE DERNIER PRODUIT", use_container_width=True):
         supprimer_produit()
         st.rerun()
 
 st.divider()
 
-# --- GÉNÉRATION DU FICHIER TXT ---
+# --- GESTION FICHIER .TXT---
 ok = False 
 if not Magasin or not famille or not ssfamille or not AR or not Devise or not VisibleWeb or not Poids or not date or not saison or not rayon or not origine:
     ok = True 
