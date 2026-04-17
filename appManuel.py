@@ -161,10 +161,10 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                 if qte_val > 0:
                     for _ in range(qte_val):
                         data_row = [
-                            Magasin, NOM_COLLECTION, date, origine, famille, saison, bar,
+                            Magasin, NOM_COLLECTION, date, origine, famille, saison, bar, ssfamille,
                             mat, coul, taille, pa, pttc, "1", "",
-                            ssfamille, rayon, mod, "", "", "", "", "", "", "", "",
-                            str(AR), Devise, "", Poids, "", "","","","","","","","","", str(VisibleWeb)
+                            ssfamille, rayon, mod, "", "", "", "", "", "", "", "","",
+                            str(AR), Devise, "", Poids, "", "","","","","","","","","","", str(VisibleWeb)
                         ]
                         lignes_finales.append("\t".join(data_row))
 
