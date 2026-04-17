@@ -1,1 +1,2 @@
-Application dans sa version totalement manuel
+streamlit
+pandas
