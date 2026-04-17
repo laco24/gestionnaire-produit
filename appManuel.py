@@ -163,7 +163,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                         data_row = [
                             Magasin, NOM_COLLECTION, date, origine, famille, saison, bar, ssfamille,
                             mat, coul, taille, pa, pttc, "1", "",
-                            ssfamille, rayon, mod, "", "", "", "", "", "", "", "","",
+                            ssfamille, rayon, mod, "", "", "", "", "", "", "", "",
                             str(AR), Devise, "", Poids, "", "","","","","","","","","","", str(VisibleWeb)
                         ]
                         lignes_finales.append("\t".join(data_row))
