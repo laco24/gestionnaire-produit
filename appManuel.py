@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import copy
+from datetime import datetime
 
 st.set_page_config(page_title="GestionnaireDeProduit", layout="wide")
 
@@ -91,7 +92,8 @@ with st.sidebar:
                     st.session_state.afficher_ajout = False
                     st.rerun()
 
-    date = st.text_input("Date (jj/mm/aaaa) :", placeholder = "Entrez la date")
+    dateAjd = datetime.now().strftime("%d/%m/%Y")
+    date = st.text_input("Date (jj/mm/aaaa) :", value = dateAjd)
     famille = st.text_input("Famille :", placeholder = "Entrez la famille").upper()
     saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
     rayon = st.text_input("Rayon :", placeholder = "Entrez le rayon").upper()
