@@ -199,7 +199,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                             mat, coul, taille, str(pa), str(pttc), "1", "",
                             ssfamille, rayon, mod, "", "", "", "", "", "", "\t",
                             str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
-                            "","","","","","","","","","","","","","","","\t"
+                            "","","","","","","","","","","","","","","",""
                         ]
                         lignes_finales.append("\t".join(data_row))
 
