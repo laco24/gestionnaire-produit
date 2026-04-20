@@ -154,7 +154,7 @@ st.divider()
 
 # --- GESTION FICHIER .TXT---
 ok = False 
-if not Magasin or not famille or not ssfamille or not AR or not Devise or not VisibleWeb or not Poids or not date or not saison or not rayon or not origine:
+if not Magasin or not famille or not ssfamille or not Devise or not Poids or not date or not saison or not rayon or not origine:
     ok = True 
 
 if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
