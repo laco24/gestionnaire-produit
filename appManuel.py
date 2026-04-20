@@ -28,6 +28,8 @@ def ajouter_produit():
         "matiere": "",
         "prix_achat": "",
         "prix_ttc": "",
+        "designation": "",
+        "ssfamille": "",
         "stocks": [{"taille": "", "qte": 1}] 
     })
 
@@ -91,7 +93,6 @@ with st.sidebar:
 
     date = st.text_input("Date (jj/mm/aaaa) :", placeholder = "Entrez la date")
     famille = st.text_input("Famille :", placeholder = "Entrez la famille").upper()
-    ssfamille = st.text_input("Sous Famille :", placeholder = "Entrez la sous famille").upper()
     saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
     rayon = st.text_input("Rayon :", placeholder = "Entrez le rayon").upper()
     origine = st.text_input("Origine :", placeholder = "Entrez l'origine").upper()
@@ -119,6 +120,11 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         c5, c6 = st.columns(2)
         produit["prix_achat"] = c5.text_input("Prix Achat", value=produit["prix_achat"], key=f"p_ach_{i}")
         produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficiant (*)", value=produit["prix_ttc"], key=f"p_ttc_{i}")
+
+        c7, c8 = st.columns(2)
+        produit["designation"] = c7.text_input("Designation (facultatif) :").upper()
+        produit["ssfamille"] = c8.text_input("Sous Famille :", placeholder = "Entrez la sous famille").upper()
+
 
         st.markdown("**Tailles et Quantités**")
 
@@ -156,7 +162,7 @@ st.divider()
 
 # --- GESTION FICHIER .TXT---
 ok = False 
-if not Magasin or not famille or not ssfamille or not Devise or not Poids or not date or not saison or not rayon or not origine:
+if not Magasin or not famille or not Devise or not Poids or not date or not saison or not rayon or not origine:
     ok = True 
 
 if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
@@ -174,6 +180,8 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
             mat = produit["matiere"]
             pa = produit["prix_achat"]
             pttc = produit["prix_ttc"]
+            ssfamille = produit["ssfamille"]
+            designation = produit["designation"]
             if "*" in produit["prix_ttc"]:
                 pa_entier = pa
                 pa_entier = pa_entier.replace(",",".")
@@ -183,6 +191,9 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                 pttc_float = float(pttc_float)
                 pttc = pa_entier * pttc_float
                 pttc = int(float(pttc)) 
+
+            if not designation: 
+                designation = ssfamille
 
             for stock in produit["stocks"]:
                 taille = stock["taille"]
@@ -195,7 +206,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                 if qte_val > 0:
                     for _ in range(qte_val):
                         data_row = [
-                            Magasin, NOM_COLLECTION, date, origine, famille, saison, bar, ssfamille,
+                            Magasin, NOM_COLLECTION, date, origine, famille, saison, bar, designation,
                             mat, coul, taille, str(pa), str(pttc), "1", "",
                             ssfamille, rayon, mod, "", "", "", "", "", "", "\t",
                             str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
