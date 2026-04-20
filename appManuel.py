@@ -121,10 +121,6 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         produit["prix_ttc"] = c6.text_input("Prix TTC", value=produit["prix_ttc"], key=f"p_ttc_{i}")
 
         st.markdown("**Tailles et Quantités**")
-        for j, stock in enumerate(produit["stocks"]):
-            col_t, col_q = st.columns([2, 1])
-            stock["taille"] = col_t.text_input(f"Taille", value=stock["taille"], key=f"size_{i}_{j}")
-            stock["qte"] = col_q.number_input(f"Quantité", value=stock["qte"], key=f"qte_{i}_{j}")
 
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
@@ -135,6 +131,12 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
             if st.button(f" - Supprimer dernière taille", key=f"btn_del_size_{i}"):
                 supprimer_taille(i)
                 st.rerun()
+
+        for j, stock in enumerate(produit["stocks"]):
+            col_t, col_q = st.columns([2, 1])
+            stock["taille"] = col_t.text_input(f"Taille", value=stock["taille"], key=f"size_{i}_{j}")
+            stock["qte"] = col_q.number_input(f"Quantité", value=stock["qte"], key=f"qte_{i}_{j}")
+
 
 st.divider()
 col_p1, col_p2, col_p3 = st.columns(3)
@@ -172,6 +174,15 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
             mat = produit["matiere"]
             pa = produit["prix_achat"]
             pttc = produit["prix_ttc"]
+            if "*" in produit["prix_ttc"]:
+                pa_entier = pa
+                pa_entier = pa_entier.replace(",",".")
+                pttc_float = pttc
+                pttc_float = pttc_float.replace("*","").replace(",",".")
+                pa_entier = float(pa_entier)
+                pttc_float = float(pttc_float)
+                pttc = pa_entier * pttc_float
+                pttc = int(float(pttc)) 
 
             for stock in produit["stocks"]:
                 taille = stock["taille"]
@@ -185,9 +196,10 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                     for _ in range(qte_val):
                         data_row = [
                             Magasin, NOM_COLLECTION, date, origine, famille, saison, bar, ssfamille,
-                            mat, coul, taille, pa, pttc, "1", "",
+                            mat, coul, taille, str(pa), str(pttc), "1", "",
                             ssfamille, rayon, mod, "", "", "", "", "", "", "\t",
-                            str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb)
+                            str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
+                            "","","","","","","","","","","","","","","","\t"
                         ]
                         lignes_finales.append("\t".join(data_row))
 
