@@ -93,7 +93,7 @@ with st.sidebar:
     famille = st.text_input("Famille :", placeholder = "Entrez la famille").upper()
     ssfamille = st.text_input("Sous Famille :", placeholder = "Entrez la sous famille").upper()
     saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
-    rayon = st.text_input("Rayon :", placeholder = "Entrez la rayon").upper()
+    rayon = st.text_input("Rayon :", placeholder = "Entrez le rayon").upper()
     origine = st.text_input("Origine :", placeholder = "Entrez l'origine").upper()
     
     st.divider()
@@ -118,7 +118,7 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         
         c5, c6 = st.columns(2)
         produit["prix_achat"] = c5.text_input("Prix Achat", value=produit["prix_achat"], key=f"p_ach_{i}")
-        produit["prix_ttc"] = c6.text_input("Prix TTC", value=produit["prix_ttc"], key=f"p_ttc_{i}")
+        produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficiant (*)", value=produit["prix_ttc"], key=f"p_ttc_{i}")
 
         st.markdown("**Tailles et Quantités**")
 
@@ -199,7 +199,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled = ok):
                             mat, coul, taille, str(pa), str(pttc), "1", "",
                             ssfamille, rayon, mod, "", "", "", "", "", "", "\t",
                             str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
-                            "","","","","","","","","","","","","","","",""
+                            "","","","","","","","","","","","","","","","\t"
                         ]
                         lignes_finales.append("\t".join(data_row))
 
