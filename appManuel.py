@@ -122,8 +122,8 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficiant (*)", value=produit["prix_ttc"], key=f"p_ttc_{i}")
 
         c7, c8 = st.columns(2)
-        produit["designation"] = c7.text_input("Designation (facultatif) :").upper()
-        produit["ssfamille"] = c8.text_input("Sous Famille :", placeholder = "Entrez la sous famille").upper()
+        produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit["designation"], key=f"desi_{i}").upper()
+        produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit["ssfamille"], key=f"ssfam_{i}").upper()
 
 
         st.markdown("**Tailles et Quantités**")
