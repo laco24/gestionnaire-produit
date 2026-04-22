@@ -27,6 +27,18 @@ def sauvegarder_entreprises(liste):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(liste, f, ensure_ascii=False, indent=4)
 
+# --- FONCTION DE VALIDATION NUMÉRIQUE ---
+def est_numerique(valeur, autoriser_etoile=False):
+    if not valeur:
+        return False
+    # On nettoie la valeur (virgule -> point)
+    temp = str(valeur).replace(',', '.')
+    if autoriser_etoile:
+        temp = temp.replace('*', '')
+    
+    # On vérifie si c'est un nombre (en enlevant le point décimal une fois)
+    return temp.replace('.', '', 1).isdigit()
+
 # --- GESTION DU SESSION STATE ---
 if "liste_produits_manuels" not in st.session_state:
     st.session_state.liste_produits_manuels = []
@@ -120,6 +132,11 @@ with st.sidebar:
     AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=1)
     Devise = st.text_input("Devise :", value="EUR").upper()
     Poids = st.text_input("Poids :", value="0,7").upper()
+    
+    # Validation visuelle immédiate pour le poids
+    if Poids and not est_numerique(Poids):
+        st.error("Le Poids doit être un nombre.")
+
     VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=1)
 
 # --- SAISIES GÉNÉRALES ---
@@ -138,6 +155,12 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         c5, c6 = st.columns(2)
         produit["prix_achat"] = c5.text_input("Prix Achat", value=produit["prix_achat"], key=f"p_ach_{i}")
         produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficient (*)", value=produit["prix_ttc"], key=f"p_ttc_{i}")
+
+        # Alertes visuelles pour les prix
+        if produit["prix_achat"] and not est_numerique(produit["prix_achat"]):
+            st.error("Le Prix d'Achat doit être un nombre.")
+        if produit["prix_ttc"] and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
+            st.error("Le Prix TTC doit être un nombre (ou commencer par *).")
 
         c7, c8 = st.columns(2)
         produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit["designation"], key=f"desi_{i}").upper()
@@ -171,20 +194,23 @@ with col_p3:
 
 st.divider()
 
-# --- VÉRIFICATION DES CHAMPS VIDES ---
-# On vérifie les paramètres de la sidebar
-params_remplis = all([Magasin, NOM_COLLECTION, famille, Devise, Poids, date, saison, rayon, origine])
+# --- VÉRIFICATION GLOBALE AVANT EXPORT ---
+# 1. Vérification des paramètres sidebar + validité numérique du Poids
+poids_valide = est_numerique(Poids)
+params_remplis = all([Magasin, NOM_COLLECTION, famille, Devise, Poids, date, saison, rayon, origine]) and poids_valide
 
-# On vérifie chaque produit
 produits_valides = True
 if not st.session_state.liste_produits_manuels:
     produits_valides = False
 else:
     for p in st.session_state.liste_produits_manuels:
-        # Liste des champs obligatoires par produit (sauf designation)
         champs_p = [p["modele"], p["barcode"], p["couleur"], p["matiere"], p["prix_achat"], p["prix_ttc"], p["ssfamille"]]
-        # Vérification si un champ est vide
+        # Vérification champs vides
         if any(v == "" or v is None for v in champs_p):
+            produits_valides = False
+            break
+        # Vérification numérique des prix
+        if not est_numerique(p["prix_achat"]) or not est_numerique(p["prix_ttc"], autoriser_etoile=True):
             produits_valides = False
             break
         # Vérification des tailles
@@ -192,7 +218,6 @@ else:
             produits_valides = False
             break
 
-# Le bouton est désactivé si les params OU les produits ne sont pas complets
 ok = params_remplis and produits_valides
 
 # --- GESTION EXPORT .TXT ---
@@ -202,7 +227,6 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
         pa = produit["prix_achat"]
         pttc = produit["prix_ttc"]
         
-        # --- CALCUL TTC ---
         if "*" in pttc:
             try:
                 pa_entier = float(pa.replace(",", "."))
@@ -237,4 +261,4 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
         st.success(f"Export réussi : {len(lignes_finales)} lignes.")
         st.download_button("Télécharger l'export .txt", "\n".join(lignes_finales), f"export_{NOM_COLLECTION}.txt")
     else:
-        st.error("Aucune ligne générée. Vérifiez les quantités.")
+        st.error("Aucune ligne générée.")
