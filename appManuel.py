@@ -31,12 +31,9 @@ def sauvegarder_entreprises(liste):
 def est_numerique(valeur, autoriser_etoile=False):
     if not valeur:
         return False
-    # On nettoie la valeur (virgule -> point)
     temp = str(valeur).replace(',', '.')
     if autoriser_etoile:
         temp = temp.replace('*', '')
-    
-    # On vérifie si c'est un nombre (en enlevant le point décimal une fois)
     return temp.replace('.', '', 1).isdigit()
 
 # --- GESTION DU SESSION STATE ---
@@ -49,8 +46,15 @@ if "liste_entreprises" not in st.session_state:
 # --- FONCTIONS DE GESTION PRODUITS ---
 def ajouter_produit():
     st.session_state.liste_produits_manuels.append({
-        "modele": "", "barcode": "", "couleur": "", "matiere": "",
-        "prix_achat": "", "prix_ttc": "", "designation": "", "ssfamille": "",
+        "modele": "", 
+        "barcode": "", 
+        "couleur": "", 
+        "matiere": "",
+        "prix_achat": "", 
+        "prix_ttc": "", 
+        "designation": "", 
+        "ssfamille": "",
+        "rayon": "",
         "stocks": [{"taille": "", "qte": 1}] 
     })
 
@@ -125,7 +129,6 @@ with st.sidebar:
     date = st.text_input("Date (jj/mm/aaaa) :", value = dateAjd)
     famille = st.text_input("Famille :", placeholder = "Entrez la famille").upper()
     saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
-    rayon = st.text_input("Rayon :", placeholder = "Entrez le rayon").upper()
     origine = st.text_input("Origine :", placeholder = "Entrez l'origine").upper()
     
     st.divider()
@@ -133,7 +136,6 @@ with st.sidebar:
     Devise = st.text_input("Devise :", value="EUR").upper()
     Poids = st.text_input("Poids :", value="0,7").upper()
     
-    # Validation visuelle immédiate pour le poids
     if Poids and not est_numerique(Poids):
         st.error("Le Poids doit être un nombre.")
 
@@ -143,28 +145,30 @@ with st.sidebar:
 st.subheader("Liste des produits")
 
 for i, produit in enumerate(st.session_state.liste_produits_manuels):
-    with st.expander(f"Produit n°{i+1} : {produit['modele'] or 'Nouveau Produit'}", expanded=True):
+    with st.expander(f"Produit n°{i+1} : {produit.get('modele', '') or 'Nouveau Produit'}", expanded=True):
         c1, c2 = st.columns(2)
-        produit["modele"] = c1.text_input("Modèle", value=produit["modele"], key=f"mod_{i}").upper()
-        produit["barcode"] = c2.text_input("Code Barre", value=produit["barcode"], key=f"bar_{i}").upper()
+        produit["modele"] = c1.text_input("Modèle", value=produit.get("modele", ""), key=f"mod_{i}").upper()
+        produit["barcode"] = c2.text_input("Code Barre", value=produit.get("barcode", ""), key=f"bar_{i}").upper()
         
         c3, c4 = st.columns(2)
-        produit["couleur"] = c3.text_input("Couleur", value=produit["couleur"], key=f"coul_{i}").upper()
-        produit["matiere"] = c4.text_input("Matière", value=produit["matiere"], key=f"mat_{i}").upper()
+        produit["couleur"] = c3.text_input("Couleur", value=produit.get("couleur", ""), key=f"coul_{i}").upper()
+        produit["matiere"] = c4.text_input("Matière", value=produit.get("matiere", ""), key=f"mat_{i}").upper()
         
         c5, c6 = st.columns(2)
-        produit["prix_achat"] = c5.text_input("Prix Achat", value=produit["prix_achat"], key=f"p_ach_{i}")
-        produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficient (*)", value=produit["prix_ttc"], key=f"p_ttc_{i}")
+        produit["prix_achat"] = c5.text_input("Prix Achat", value=produit.get("prix_achat", ""), key=f"p_ach_{i}")
+        produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficient (*)", value=produit.get("prix_ttc", ""), key=f"p_ttc_{i}")
 
-        # Alertes visuelles pour les prix
-        if produit["prix_achat"] and not est_numerique(produit["prix_achat"]):
+        if produit.get("prix_achat") and not est_numerique(produit["prix_achat"]):
             st.error("Le Prix d'Achat doit être un nombre.")
-        if produit["prix_ttc"] and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
+        if produit.get("prix_ttc") and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
             st.error("Le Prix TTC doit être un nombre (ou commencer par *).")
 
-        c7, c8 = st.columns(2)
-        produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit["designation"], key=f"desi_{i}").upper()
-        produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit["ssfamille"], key=f"ssfam_{i}").upper()
+        c7, c8, c9 = st.columns(3)
+        produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
+        produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
+
+        # Rayon garde son affichage d'origine (sur une ligne pleine ou selon tes colonnes précédentes)
+        produit["rayon"] = c9.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
 
         st.markdown("**Tailles et Quantités**")
         cb1, cb2 = st.columns(2)
@@ -195,25 +199,22 @@ with col_p3:
 st.divider()
 
 # --- VÉRIFICATION GLOBALE AVANT EXPORT ---
-# 1. Vérification des paramètres sidebar + validité numérique du Poids
 poids_valide = est_numerique(Poids)
-params_remplis = all([Magasin, NOM_COLLECTION, famille, Devise, Poids, date, saison, rayon, origine]) and poids_valide
+params_remplis = all([Magasin, NOM_COLLECTION, famille, Devise, Poids, date, saison, origine]) and poids_valide
 
 produits_valides = True
 if not st.session_state.liste_produits_manuels:
     produits_valides = False
 else:
     for p in st.session_state.liste_produits_manuels:
-        champs_p = [p["modele"], p["barcode"], p["couleur"], p["matiere"], p["prix_achat"], p["prix_ttc"], p["ssfamille"]]
-        # Vérification champs vides
+        # Vérification incluant le rayon du produit
+        champs_p = [p.get("modele"), p.get("barcode"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon")]
         if any(v == "" or v is None for v in champs_p):
             produits_valides = False
             break
-        # Vérification numérique des prix
         if not est_numerique(p["prix_achat"]) or not est_numerique(p["prix_ttc"], autoriser_etoile=True):
             produits_valides = False
             break
-        # Vérification des tailles
         if any(s["taille"] == "" for s in p["stocks"]):
             produits_valides = False
             break
@@ -251,7 +252,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
                     data_row = [
                         Magasin, NOM_COLLECTION, date, origine, famille, saison, produit["barcode"], designation,
                         produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, "1", "",
-                        produit["ssfamille"], rayon, produit["modele"], "", "", "", "", "", "", "\t",
+                        produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
                         str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
                         "","","","","","","","","","","","","","","","\t"
                     ]
