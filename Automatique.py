@@ -9,8 +9,9 @@ st.set_page_config(page_title="ExtracteurDeProduit", layout="wide")
 st.title("Extracteur de Produits")
 st.divider()
 
-# --- GESTION DU FICHIER JSON ---
+# --- GESTION DES FICHIERS JSON ---
 DB_FILE = "marques.json"
+SIDEBAR_FILE = "sidebar.json"
 
 def charger_entreprises():
     if os.path.exists(DB_FILE):
@@ -26,6 +27,21 @@ def sauvegarder_entreprises(liste):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(liste, f, ensure_ascii=False, indent=4)
 
+def charger_sidebar():
+    if os.path.exists(SIDEBAR_FILE):
+        with open(SIDEBAR_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "magasin": "REIMS", "date": datetime.now().strftime("%d/%m/%Y"),
+        "saison": "", "origine": "", "ar": 1, "devise": "EUR", "poids": "0,7", "visible_web": 1
+    }
+
+def sauvegarder_sidebar(cle, valeur):
+    config = charger_sidebar()
+    config[cle] = valeur
+    with open(SIDEBAR_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+
 def est_numerique(valeur):
     if not valeur: return False
     temp = str(valeur).replace(',', '.')
@@ -35,7 +51,9 @@ def est_numerique(valeur):
 if "liste_entreprises" not in st.session_state:
     st.session_state.liste_entreprises = charger_entreprises()
 
-# --- DIALOGUES (MODALS) ---
+config_side = charger_sidebar()
+
+# --- DIALOGUES ---
 @st.dialog("Ajouter une entreprise")
 def ajouter_entreprise_dialog():
     nouveau_nom = st.text_input("Nom de la nouvelle entreprise :").upper()
@@ -46,59 +64,60 @@ def ajouter_entreprise_dialog():
                 st.session_state.liste_entreprises.sort()
                 sauvegarder_entreprises(st.session_state.liste_entreprises)
                 st.rerun()
-            else:
-                st.error("Cette entreprise existe déjà.")
 
 @st.dialog("Supprimer une entreprise")
 def supprimer_entreprise_dialog():
-    st.write("Choisissez l'entreprise à retirer :")
     choix = st.selectbox("Entreprise à supprimer", options=st.session_state.liste_entreprises)
-    st.warning(f"Confirmez-vous la suppression de '{choix}' ?")
     if st.button("Confirmer la suppression", use_container_width=True):
         st.session_state.liste_entreprises.remove(choix)
         sauvegarder_entreprises(st.session_state.liste_entreprises)
         st.rerun()
 
-# --- SIDEBAR : PARAMÈTRES ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("Paramètres")
-    Magasin = st.text_input("Code Magasin :", value="REIMS").upper()
+    
+    Magasin = st.text_input("Code Magasin :", value=config_side["magasin"]).upper()
+    if Magasin != config_side["magasin"]: sauvegarder_sidebar("magasin", Magasin)
 
     NOM_COLLECTION = st.selectbox("Nom de la Marque :", 
                                   options=st.session_state.liste_entreprises, 
-                                  index=None, 
-                                  placeholder="Choisissez une marque")
+                                  index=None, placeholder="Choisissez une marque")
 
-    col_ent1, col_ent2 = st.columns(2)
-    with col_ent1:
-        if st.button("+ Ajouter", use_container_width=True):
-            ajouter_entreprise_dialog()
-    with col_ent2:
-        if st.button("- Supprimer", use_container_width=True):
-            supprimer_entreprise_dialog()
+    col1, col2 = st.columns(2)
+    with col1: 
+        if st.button("+ Ajouter", use_container_width=True): ajouter_entreprise_dialog()
+    with col2: 
+        if st.button("- Supprimer", use_container_width=True): supprimer_entreprise_dialog()
 
-    dateAjd = datetime.now().strftime("%d/%m/%Y")
-    date = st.text_input("Date (jj/mm/aaaa) :", value = dateAjd)
-    famille = st.text_input("Famille :", placeholder = "Entrez la famille").upper()
-    saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
-    origine = st.text_input("Origine :", placeholder = "Entrez l'origine").upper()
+    date = st.text_input("Date (jj/mm/aaaa) :", value=config_side["date"])
+    if date != config_side["date"]: sauvegarder_sidebar("date", date)
+
+    saison = st.text_input("Saison :", value=config_side["saison"],placeholder = "Entrez la saison").upper()
+    if saison != config_side["saison"]: sauvegarder_sidebar("saison", saison)
+
+    origine = st.text_input("Origine :", value=config_side["origine"], placeholder = "Entrez l'origine").upper()
+    if origine != config_side["origine"]: sauvegarder_sidebar("origine", origine)
     
     st.divider()
-    AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=1)
-    Devise = st.text_input("Devise :", value="EUR").upper()
-    Poids = st.text_input("Poids :", value="0,7").upper()
-    
-    if Poids and not est_numerique(Poids):
-        st.error("Le Poids doit être un nombre.")
+    AR = st.number_input("Indicateur AR (0/1):", 0, 1, value=int(config_side["ar"]))
+    if AR != config_side["ar"]: sauvegarder_sidebar("ar", AR)
 
-    VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=1)
+    Devise = st.text_input("Devise :", value=config_side["devise"]).upper()
+    if Devise != config_side["devise"]: sauvegarder_sidebar("devise", Devise)
+
+    Poids = st.text_input("Poids :", value=config_side["poids"])
+    if Poids != config_side["poids"]: sauvegarder_sidebar("poids", Poids)
+    
+    if Poids and not est_numerique(Poids): st.error("Le Poids doit être un nombre.")
+
+    VisibleWeb = st.number_input("Visible Web (0/1):", 0, 1, value=int(config_side["visible_web"]))
+    if VisibleWeb != config_side["visible_web"]: sauvegarder_sidebar("visible_web", VisibleWeb)
 
 # --- ZONE DE TÉLÉCHARGEMENT ---
-ok = False
-if not famille or not Magasin or not origine or not AR or not VisibleWeb or not Devise or not Poids or not date or not NOM_COLLECTION:
-    ok = True
-uploaded_file = st.file_uploader("Choisissez votre fichier PDF", type="pdf", disabled = ok)
+champs_obligatoires = [Magasin, origine, date, NOM_COLLECTION]
+ok = any(v == "" or v is None for v in champs_obligatoires)
+uploaded_file = st.file_uploader("Choisissez votre fichier PDF", type="pdf", disabled=ok)
 
 if uploaded_file:
-    st.success("Fichier prit en considération")
-  
+    st.success("Fichier pris en considération")
