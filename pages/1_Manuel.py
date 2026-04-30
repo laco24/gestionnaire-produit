@@ -55,6 +55,7 @@ def ajouter_produit():
         "designation": "", 
         "ssfamille": "",
         "rayon": "",
+        "famille": "",
         "stocks": [{"taille": "", "qte": 1}] 
     })
 
@@ -127,7 +128,6 @@ with st.sidebar:
 
     dateAjd = datetime.now().strftime("%d/%m/%Y")
     date = st.text_input("Date (jj/mm/aaaa) :", value = dateAjd)
-    famille = st.text_input("Famille :", placeholder = "Entrez la famille").upper()
     saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
     origine = st.text_input("Origine :", placeholder = "Entrez l'origine").upper()
     
@@ -163,12 +163,13 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         if produit.get("prix_ttc") and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
             st.error("Le Prix TTC doit être un nombre (ou commencer par *).")
 
-        c7, c8, c9 = st.columns(3)
+        c7, c8 = st.columns(2)
         produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
-        produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
+        produit["famille"] = c8.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
 
-        # Rayon garde son affichage d'origine (sur une ligne pleine ou selon tes colonnes précédentes)
+        c9, c10 = st.columns(2)
         produit["rayon"] = c9.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
+        produit["ssfamille"] = c10.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
 
         st.markdown("**Tailles et Quantités**")
         cb1, cb2 = st.columns(2)
@@ -200,7 +201,7 @@ st.divider()
 
 # --- VÉRIFICATION GLOBALE AVANT EXPORT ---
 poids_valide = est_numerique(Poids)
-params_remplis = all([Magasin, NOM_COLLECTION, famille, Devise, Poids, date, saison, origine]) and poids_valide
+params_remplis = all([Magasin, NOM_COLLECTION, Devise, Poids, date, saison, origine]) and poids_valide
 
 produits_valides = True
 if not st.session_state.liste_produits_manuels:
@@ -208,7 +209,7 @@ if not st.session_state.liste_produits_manuels:
 else:
     for p in st.session_state.liste_produits_manuels:
         # Vérification incluant le rayon du produit
-        champs_p = [p.get("modele"), p.get("barcode"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon")]
+        champs_p = [p.get("modele"), p.get("barcode"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"),p.get("famille")]
         if any(v == "" or v is None for v in champs_p):
             produits_valides = False
             break
@@ -250,7 +251,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
             if qte_val > 0:
                 for _ in range(qte_val):
                     data_row = [
-                        Magasin, NOM_COLLECTION, date, origine, famille, saison, produit["barcode"], designation,
+                        Magasin, NOM_COLLECTION, date, origine, produit["famille"], saison, produit["barcode"], designation,
                         produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, "1", "",
                         produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
                         str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
