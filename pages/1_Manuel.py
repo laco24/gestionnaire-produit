@@ -288,7 +288,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
                 produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, str(stock["qte"]), "",
                 produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
                 str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
-                "","","","","","","","","","","","","","","","\t"
+                "","","","","","","","","","","","","","","",""
             ]
             lignes_finales.append("\t".join(data_row))
 
