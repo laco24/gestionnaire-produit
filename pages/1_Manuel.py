@@ -1,17 +1,18 @@
 import streamlit as st
 import pandas as pd
-import re
 import copy
 import json
 import os
 from datetime import datetime
 
+# --- CONFIGURATION ---
 st.set_page_config(page_title="GestionnaireDeProduit", layout="wide")
 
 st.title("Gestionnaire de Produits")
 
-# --- GESTION DU FICHIER JSON ---
+# --- GESTION DES FICHIERS JSON ---
 DB_FILE = "marques.json"
+SIDEBAR_FILE = "sidebar.json"
 
 def charger_entreprises():
     if os.path.exists(DB_FILE):
@@ -27,7 +28,29 @@ def sauvegarder_entreprises(liste):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(liste, f, ensure_ascii=False, indent=4)
 
-# --- FONCTION DE VALIDATION NUMÉRIQUE ---
+def charger_sidebar():
+    """Charge les paramètres de la sidebar depuis le JSON ou met des valeurs par défaut."""
+    if os.path.exists(SIDEBAR_FILE):
+        with open(SIDEBAR_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "magasin": "REIMS",
+        "date": datetime.now().strftime("%d/%m/%Y"),
+        "saison": "",
+        "origine": "",
+        "ar": 1,
+        "devise": "EUR",
+        "poids": "0,7",
+        "visible_web": 1
+    }
+
+def sauvegarder_sidebar(cle, valeur):
+    """Met à jour une valeur spécifique dans le fichier JSON de la sidebar."""
+    config = charger_sidebar()
+    config[cle] = valeur
+    with open(SIDEBAR_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+
 def est_numerique(valeur, autoriser_etoile=False):
     if not valeur:
         return False
@@ -36,12 +59,15 @@ def est_numerique(valeur, autoriser_etoile=False):
         temp = temp.replace('*', '')
     return temp.replace('.', '', 1).isdigit()
 
-# --- GESTION DU SESSION STATE ---
+# --- INITIALISATION SESSION STATE ---
 if "liste_produits_manuels" not in st.session_state:
     st.session_state.liste_produits_manuels = []
 
 if "liste_entreprises" not in st.session_state:
     st.session_state.liste_entreprises = charger_entreprises()
+
+# Chargement des réglages sauvegardés
+config_side = charger_sidebar()
 
 # --- FONCTIONS DE GESTION PRODUITS ---
 def ajouter_produit():
@@ -71,7 +97,6 @@ def supprimer_taille(index_produit):
         st.session_state.liste_produits_manuels[index_produit]["stocks"].pop()
 
 # --- DIALOGUES (MODALS) ---
-
 @st.dialog("Ajouter une entreprise")
 def ajouter_entreprise_dialog():
     nouveau_nom = st.text_input("Nom de la nouvelle entreprise :").upper()
@@ -81,16 +106,14 @@ def ajouter_entreprise_dialog():
                 st.session_state.liste_entreprises.append(nouveau_nom)
                 st.session_state.liste_entreprises.sort()
                 sauvegarder_entreprises(st.session_state.liste_entreprises)
-                st.success(f"'{nouveau_nom}' ajouté avec succès.")
+                st.success(f"'{nouveau_nom}' ajouté.")
                 st.rerun()
             else:
-                st.error("Cette entreprise existe déjà.")
+                st.error("Existe déjà.")
 
 @st.dialog("Supprimer une entreprise")
 def supprimer_entreprise_dialog():
-    st.write("Choisissez l'entreprise à retirer :")
     choix = st.selectbox("Entreprise à supprimer", options=st.session_state.liste_entreprises)
-    st.warning(f"Confirmez-vous la suppression de '{choix}' ?")
     if st.button("Confirmer la suppression", use_container_width=True):
         st.session_state.liste_entreprises.remove(choix)
         sauvegarder_entreprises(st.session_state.liste_entreprises)
@@ -111,8 +134,12 @@ def copier_produit_dialog():
 # --- SIDEBAR : PARAMÈTRES ---
 with st.sidebar:
     st.header("Paramètres")
-    Magasin = st.text_input("Code Magasin :", value="REIMS").upper()
+    
+    # Code Magasin
+    Magasin = st.text_input("Code Magasin :", value=config_side["magasin"]).upper()
+    if Magasin != config_side["magasin"]: sauvegarder_sidebar("magasin", Magasin)
 
+    # Marque
     NOM_COLLECTION = st.selectbox("Nom de la Marque :", 
                                   options=st.session_state.liste_entreprises, 
                                   index=None, 
@@ -120,28 +147,43 @@ with st.sidebar:
 
     col_ent1, col_ent2 = st.columns(2)
     with col_ent1:
-        if st.button("+ Ajouter", use_container_width=True):
-            ajouter_entreprise_dialog()
+        if st.button("+ Ajouter", use_container_width=True): ajouter_entreprise_dialog()
     with col_ent2:
-        if st.button("- Supprimer", use_container_width=True):
-            supprimer_entreprise_dialog()
+        if st.button("- Supprimer", use_container_width=True): supprimer_entreprise_dialog()
 
-    dateAjd = datetime.now().strftime("%d/%m/%Y")
-    date = st.text_input("Date (jj/mm/aaaa) :", value = dateAjd)
-    saison = st.text_input("Saison :", placeholder = "Entrez la saison").upper()
-    origine = st.text_input("Origine :", placeholder = "Entrez l'origine").upper()
+    # Date
+    date = st.text_input("Date (jj/mm/aaaa) :", value=config_side["date"])
+    if date != config_side["date"]: sauvegarder_sidebar("date", date)
+
+    # Saison
+    saison = st.text_input("Saison :", value=config_side["saison"], placeholder = "Entrez la saison").upper()
+    if saison != config_side["saison"]: sauvegarder_sidebar("saison", saison)
+
+    # Origine
+    origine = st.text_input("Origine :", value=config_side["origine"], placeholder = "Entrez l'origine").upper()
+    if origine != config_side["origine"]: sauvegarder_sidebar("origine", origine)
     
     st.divider()
-    AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=1)
-    Devise = st.text_input("Devise :", value="EUR").upper()
-    Poids = st.text_input("Poids :", value="0,7").upper()
     
+    # Indicateur AR
+    AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=int(config_side["ar"]))
+    if AR != config_side["ar"]: sauvegarder_sidebar("ar", AR)
+
+    # Devise
+    Devise = st.text_input("Devise :", value=config_side["devise"]).upper()
+    if Devise != config_side["devise"]: sauvegarder_sidebar("devise", Devise)
+
+    # Poids
+    Poids = st.text_input("Poids :", value=config_side["poids"])
+    if Poids != config_side["poids"]: sauvegarder_sidebar("poids", Poids)
     if Poids and not est_numerique(Poids):
         st.error("Le Poids doit être un nombre.")
 
-    VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=1)
+    # Visible Web
+    VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=int(config_side["visible_web"]))
+    if VisibleWeb != config_side["visible_web"]: sauvegarder_sidebar("visible_web", VisibleWeb)
 
-# --- SAISIES GÉNÉRALES ---
+# --- SAISIES PRODUITS ---
 st.subheader("Liste des produits")
 
 for i, produit in enumerate(st.session_state.liste_produits_manuels):
@@ -161,7 +203,7 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
         if produit.get("prix_achat") and not est_numerique(produit["prix_achat"]):
             st.error("Le Prix d'Achat doit être un nombre.")
         if produit.get("prix_ttc") and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
-            st.error("Le Prix TTC doit être un nombre (ou commencer par *).")
+            st.error("Le Prix TTC doit être un nombre.")
 
         c7, c8 = st.columns(2)
         produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
@@ -199,7 +241,7 @@ with col_p3:
 
 st.divider()
 
-# --- VÉRIFICATION GLOBALE AVANT EXPORT ---
+# --- VÉRIFICATION GLOBALE ---
 poids_valide = est_numerique(Poids)
 params_remplis = all([Magasin, NOM_COLLECTION, Devise, Poids, date, saison, origine]) and poids_valide
 
@@ -208,8 +250,7 @@ if not st.session_state.liste_produits_manuels:
     produits_valides = False
 else:
     for p in st.session_state.liste_produits_manuels:
-        # Vérification incluant le rayon du produit
-        champs_p = [p.get("modele"), p.get("barcode"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"),p.get("famille")]
+        champs_p = [p.get("modele"), p.get("barcode"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"), p.get("famille")]
         if any(v == "" or v is None for v in champs_p):
             produits_valides = False
             break
@@ -222,7 +263,7 @@ else:
 
 ok = params_remplis and produits_valides
 
-# --- GESTION EXPORT .TXT ---
+# --- EXPORT .TXT ---
 if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=True):
     lignes_finales = []
     for produit in st.session_state.liste_produits_manuels:
@@ -233,8 +274,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
             try:
                 pa_entier = float(pa.replace(",", "."))
                 coeff = float(pttc.replace("*", "").replace(",", "."))
-                valeur_calculee = pa_entier * coeff
-                pttc_final = str(int(valeur_calculee))
+                pttc_final = str(int(pa_entier * coeff))
             except:
                 pttc_final = pttc
         else:
@@ -243,24 +283,17 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
         designation = produit["designation"] if produit["designation"] else produit["ssfamille"]
 
         for stock in produit["stocks"]:
-            try:
-                qte_val = int(stock["qte"])
-            except:
-                qte_val = 0
-
-            if qte_val > 0:
-                for _ in range(qte_val):
-                    data_row = [
-                        Magasin, NOM_COLLECTION, date, origine, produit["famille"], saison, produit["barcode"], designation,
-                        produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, "1", "",
-                        produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
-                        str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
-                        "","","","","","","","","","","","","","","","\t"
-                    ]
-                    lignes_finales.append("\t".join(data_row))
+            data_row = [
+                Magasin, NOM_COLLECTION, date, origine, produit["famille"], saison, produit["barcode"], designation,
+                produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, str(stock["qte"]), "",
+                produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
+                str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
+                "","","","","","","","","","","","","","","","\t"
+            ]
+            lignes_finales.append("\t".join(data_row))
 
     if lignes_finales:
-        st.success(f"Export réussi : {len(lignes_finales)} lignes.")
+        st.success(f"Export réussi.")
         st.download_button("Télécharger l'export .txt", "\n".join(lignes_finales), f"export_{NOM_COLLECTION}.txt")
     else:
         st.error("Aucune ligne générée.")
