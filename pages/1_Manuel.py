@@ -73,7 +73,6 @@ config_side = charger_sidebar()
 def ajouter_produit():
     st.session_state.liste_produits_manuels.append({
         "modele": "", 
-        "barcode": "", 
         "couleur": "", 
         "matiere": "",
         "prix_achat": "", 
@@ -190,8 +189,7 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
     with st.expander(f"Produit n°{i+1} : {produit.get('modele', '') or 'Nouveau Produit'}", expanded=True):
         c1, c2 = st.columns(2)
         produit["modele"] = c1.text_input("Modèle", value=produit.get("modele", ""), key=f"mod_{i}").upper()
-        produit["barcode"] = c2.text_input("Code Barre", value=produit.get("barcode", ""), key=f"bar_{i}").upper()
-        
+        produit["designation"] = c2.text_input("Designation :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
         c3, c4 = st.columns(2)
         produit["couleur"] = c3.text_input("Couleur", value=produit.get("couleur", ""), key=f"coul_{i}").upper()
         produit["matiere"] = c4.text_input("Matière", value=produit.get("matiere", ""), key=f"mat_{i}").upper()
@@ -206,12 +204,11 @@ for i, produit in enumerate(st.session_state.liste_produits_manuels):
             st.error("Le Prix TTC doit être un nombre.")
 
         c7, c8 = st.columns(2)
-        produit["designation"] = c7.text_input("Designation (facultatif) :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
-        produit["famille"] = c8.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
+        produit["famille"] = c7.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
+        produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
 
         c9, c10 = st.columns(2)
-        produit["rayon"] = c9.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
-        produit["ssfamille"] = c10.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
+        produit["rayon"] = st.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
 
         st.markdown("**Tailles et Quantités**")
         cb1, cb2 = st.columns(2)
@@ -250,7 +247,7 @@ if not st.session_state.liste_produits_manuels:
     produits_valides = False
 else:
     for p in st.session_state.liste_produits_manuels:
-        champs_p = [p.get("modele"), p.get("barcode"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"), p.get("famille")]
+        champs_p = [p.get("modele"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"), p.get("famille"), p.get("designation")]
         if any(v == "" or v is None for v in champs_p):
             produits_valides = False
             break
@@ -284,7 +281,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
 
         for stock in produit["stocks"]:
             data_row = [
-                Magasin, NOM_COLLECTION, date, origine, produit["famille"], saison, produit["barcode"], designation,
+                Magasin, NOM_COLLECTION, date, origine, produit["famille"], saison, produit["modele"], designation,
                 produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, str(stock["qte"]), "",
                 produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
                 str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
