@@ -60,9 +60,7 @@ def est_numerique(valeur, autoriser_etoile=False):
 if "liste_produits_manuels" not in st.session_state:
     st.session_state.liste_produits_manuels = []
 
-# Utilisation de la fonction cachée
 st.session_state.liste_entreprises = charger_entreprises()
-
 config_side = charger_sidebar()
 
 # --- FONCTIONS DE GESTION PRODUITS ---
@@ -161,60 +159,69 @@ with st.sidebar:
     VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=int(config_side["visible_web"]))
     if VisibleWeb != config_side["visible_web"]: sauvegarder_sidebar("visible_web", VisibleWeb)
 
-# --- SAISIES PRODUITS ---
-# ... (le reste du code pour l'affichage des produits reste identique)
-st.subheader("Liste des produits")
+# --- FRAGMENT POUR LA GESTION DES PRODUITS ---
+@st.fragment
+def afficher_zone_produits():
+    st.subheader("Liste des produits")
 
-for i, produit in enumerate(st.session_state.liste_produits_manuels):
-    with st.expander(f"Produit n°{i+1} : {produit.get('modele', '') or 'Nouveau Produit'}", expanded=True):
-        c1, c2 = st.columns(2)
-        produit["modele"] = c1.text_input("Modèle", value=produit.get("modele", ""), key=f"mod_{i}").upper()
-        produit["designation"] = c2.text_input("Designation :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
-        c3, c4 = st.columns(2)
-        produit["couleur"] = c3.text_input("Couleur", value=produit.get("couleur", ""), key=f"coul_{i}").upper()
-        produit["matiere"] = c4.text_input("Matière", value=produit.get("matiere", ""), key=f"mat_{i}").upper()
-        
-        c5, c6 = st.columns(2)
-        produit["prix_achat"] = c5.text_input("Prix Achat", value=produit.get("prix_achat", ""), key=f"p_ach_{i}")
-        produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficient (*)", value=produit.get("prix_ttc", ""), key=f"p_ttc_{i}")
+    for i, produit in enumerate(st.session_state.liste_produits_manuels):
+        # L'expander est maintenant toujours ouvert par défaut
+        with st.expander(f"Produit n°{i+1} : {produit.get('modele', '') or 'Nouveau'}", expanded=True):
+            c1, c2 = st.columns(2)
+            produit["modele"] = c1.text_input("Modèle", value=produit.get("modele", ""), key=f"mod_{i}").upper()
+            produit["designation"] = c2.text_input("Designation :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
+            c3, c4 = st.columns(2)
+            produit["couleur"] = c3.text_input("Couleur", value=produit.get("couleur", ""), key=f"coul_{i}").upper()
+            produit["matiere"] = c4.text_input("Matière", value=produit.get("matiere", ""), key=f"mat_{i}").upper()
+            
+            c5, c6 = st.columns(2)
+            produit["prix_achat"] = c5.text_input("Prix Achat", value=produit.get("prix_achat", ""), key=f"p_ach_{i}")
+            produit["prix_ttc"] = c6.text_input("Prix TTC ou Coefficient (*)", value=produit.get("prix_ttc", ""), key=f"p_ttc_{i}")
 
-        if produit.get("prix_achat") and not est_numerique(produit["prix_achat"]):
-            st.error("Le Prix d'Achat doit être un nombre.")
-        if produit.get("prix_ttc") and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
-            st.error("Le Prix TTC doit être un nombre.")
+            if produit.get("prix_achat") and not est_numerique(produit["prix_achat"]):
+                st.error("Le Prix d'Achat doit être un nombre.")
+            if produit.get("prix_ttc") and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
+                st.error("Le Prix TTC doit être un nombre.")
 
-        c7, c8 = st.columns(2)
-        produit["famille"] = c7.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
-        produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
+            c7, c8 = st.columns(2)
+            produit["famille"] = c7.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
+            produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
 
-        c9, c10 = st.columns(2)
-        produit["rayon"] = st.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
+            c9, c10 = st.columns(2)
+            produit["rayon"] = st.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
 
-        st.markdown("**Tailles et Quantités**")
-        cb1, cb2 = st.columns(2)
-        with cb1:
-            if st.button(f" + Ajouter une taille", key=f"btn_size_{i}"):
-                ajouter_taille(i); st.rerun()
-        with cb2:
-            if st.button(f" - Supprimer dernière taille", key=f"btn_del_size_{i}"):
-                supprimer_taille(i); st.rerun()
+            st.markdown("**Tailles et Quantités**")
+            cb1, cb2 = st.columns(2)
+            with cb1:
+                if st.button(f" + Ajouter une taille", key=f"btn_size_{i}"):
+                    ajouter_taille(i)
+                    st.rerun(scope="fragment")
+            with cb2:
+                if st.button(f" - Supprimer dernière taille", key=f"btn_del_size_{i}"):
+                    supprimer_taille(i)
+                    st.rerun(scope="fragment")
 
-        for j, stock in enumerate(produit["stocks"]):
-            col_t, col_q = st.columns([2, 1])
-            stock["taille"] = col_t.text_input(f"Taille", value=stock["taille"], key=f"size_{i}_{j}")
-            stock["qte"] = col_q.number_input(f"Quantité", value=stock["qte"], key=f"qte_{i}_{j}")
+            for j, stock in enumerate(produit["stocks"]):
+                col_t, col_q = st.columns([2, 1])
+                stock["taille"] = col_t.text_input(f"Taille", value=stock["taille"], key=f"size_{i}_{j}")
+                stock["qte"] = col_q.number_input(f"Quantité", value=stock["qte"], key=f"qte_{i}_{j}")
 
-st.divider()
-col_p1, col_p2, col_p3 = st.columns(3)
-with col_p1:
-    if st.button("AJOUTER UN NOUVEAU PRODUIT", use_container_width=True):
-        ajouter_produit(); st.rerun()
-with col_p2:
-    if st.button("COPIER UN PRODUIT", use_container_width=True):
-        copier_produit_dialog()
-with col_p3:
-    if st.button("SUPPRIMER LE DERNIER PRODUIT", use_container_width=True):
-        supprimer_produit(); st.rerun()
+    st.divider()
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        if st.button("AJOUTER UN NOUVEAU PRODUIT", use_container_width=True):
+            ajouter_produit()
+            st.rerun(scope="fragment")
+    with col_p2:
+        if st.button("COPIER UN PRODUIT", use_container_width=True):
+            copier_produit_dialog()
+    with col_p3:
+        if st.button("SUPPRIMER LE DERNIER PRODUIT", use_container_width=True):
+            supprimer_produit()
+            st.rerun(scope="fragment")
+
+# --- APPEL DU FRAGMENT ---
+afficher_zone_produits()
 
 st.divider()
 
@@ -261,8 +268,8 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
                 str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
                 "","","","","","","","","","","","","","","","\t"
             ]
-        clean_row = [str(champ).strip() for champ in data_row]
-        lignes_finales.append("\t".join(clean_row))
+            clean_row = [str(champ).strip() for champ in data_row]
+            lignes_finales.append("\t".join(clean_row))
 
     if lignes_finales:
         st.success(f"Export réussi.")
