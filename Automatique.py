@@ -43,8 +43,7 @@ def charger_sidebar():
         with open(SIDEBAR_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {
-        "magasin": "REIMS", "date": datetime.now().strftime("%d/%m/%Y"),
-        "saison": "", "origine": "", "ar": 1, "devise": "EUR", "poids": "0,7", "visible_web": 1
+        "magasin": "REIMS", "saison": "", "origine": "", "ar": 1, "devise": "EUR", "poids": "0,7", "visible_web": 1
     }
 
 def sauvegarder_sidebar(cle, valeur):
@@ -106,8 +105,7 @@ with st.sidebar:
         charger_entreprises.clear()
         st.rerun()
 
-    date = st.text_input("Date (jj/mm/aaaa) :", value=config_side["date"])
-    if date != config_side["date"]: sauvegarder_sidebar("date", date)
+    date = st.text_input("Date (jj/mm/aaaa) :", value=datetime.now().strftime("%d/%m/%Y"))
 
     saison = st.text_input("Saison :", value=config_side["saison"],placeholder = "Entrez la saison").upper()
     if saison != config_side["saison"]: sauvegarder_sidebar("saison", saison)
