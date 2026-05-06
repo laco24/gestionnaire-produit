@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import copy
 import json
@@ -10,77 +11,67 @@ st.set_page_config(page_title="GestionnaireDeProduit", layout="wide")
 
 st.title("Gestionnaire de Produits")
 
-# --- GESTION DES FICHIERS JSON ---
-DB_FILE = "marques.json"
-SIDEBAR_FILE = "sidebar.json"
+# --- GESTION GOOGLE SHEETS AVEC CACHE ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
+@st.cache_data(ttl=600)
 def charger_entreprises():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        initiales = ["ESSENTIAL", "MEXICANA"]
-        initiales.sort()
-        sauvegarder_entreprises(initiales)
-        return initiales
+    try:
+        df = conn.read(worksheet="Feuille1", ttl=0)
+        liste = df["Marque"].dropna().unique().tolist()
+        liste.sort()
+        return liste
+    except Exception as e:
+        st.error(f"Erreur lecture Sheet: {e}")
+        return ["ESSENTIAL", "MEXICANA"]
 
 def sauvegarder_entreprises(liste):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(liste, f, ensure_ascii=False, indent=4)
+    try:
+        new_df = pd.DataFrame({"Marque": liste})
+        conn.update(worksheet="Feuille1", data=new_df)
+        charger_entreprises.clear()
+    except Exception as e:
+        st.error(f"Erreur écriture Sheet: {e}")
+
+# --- GESTION DES FICHIERS JSON ---
+SIDEBAR_FILE = "sidebar.json"
 
 def charger_sidebar():
-    """Charge les paramètres de la sidebar depuis le JSON ou met des valeurs par défaut."""
     if os.path.exists(SIDEBAR_FILE):
         with open(SIDEBAR_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {
-        "magasin": "REIMS",
-        "date": datetime.now().strftime("%d/%m/%Y"),
-        "saison": "",
-        "origine": "",
-        "ar": 1,
-        "devise": "EUR",
-        "poids": "0,7",
-        "visible_web": 1
+        "magasin": "REIMS", "date": datetime.now().strftime("%d/%m/%Y"),
+        "saison": "", "origine": "", "ar": 1, "devise": "EUR", "poids": "0,7", "visible_web": 1
     }
 
 def sauvegarder_sidebar(cle, valeur):
-    """Met à jour une valeur spécifique dans le fichier JSON de la sidebar."""
     config = charger_sidebar()
     config[cle] = valeur
     with open(SIDEBAR_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=4)
 
 def est_numerique(valeur, autoriser_etoile=False):
-    if not valeur:
-        return False
+    if not valeur: return False
     temp = str(valeur).replace(',', '.')
-    if autoriser_etoile:
-        temp = temp.replace('*', '')
+    if autoriser_etoile: temp = temp.replace('*', '')
     return temp.replace('.', '', 1).isdigit()
 
 # --- INITIALISATION SESSION STATE ---
 if "liste_produits_manuels" not in st.session_state:
     st.session_state.liste_produits_manuels = []
 
-if "liste_entreprises" not in st.session_state:
-    st.session_state.liste_entreprises = charger_entreprises()
+# Utilisation de la fonction cachée
+st.session_state.liste_entreprises = charger_entreprises()
 
-# Chargement des réglages sauvegardés
 config_side = charger_sidebar()
 
 # --- FONCTIONS DE GESTION PRODUITS ---
 def ajouter_produit():
     st.session_state.liste_produits_manuels.append({
-        "modele": "", 
-        "couleur": "", 
-        "matiere": "",
-        "prix_achat": "", 
-        "prix_ttc": "", 
-        "designation": "", 
-        "ssfamille": "",
-        "rayon": "",
-        "famille": "",
+        "modele": "", "couleur": "", "matiere": "",
+        "prix_achat": "", "prix_ttc": "", "designation": "", 
+        "ssfamille": "", "rayon": "", "famille": "",
         "stocks": [{"taille": "", "qte": 1}] 
     })
 
@@ -95,7 +86,7 @@ def supprimer_taille(index_produit):
     if len(st.session_state.liste_produits_manuels[index_produit]["stocks"]) > 1:
         st.session_state.liste_produits_manuels[index_produit]["stocks"].pop()
 
-# --- DIALOGUES (MODALS) ---
+# --- DIALOGUES ---
 @st.dialog("Ajouter une entreprise")
 def ajouter_entreprise_dialog():
     nouveau_nom = st.text_input("Nom de la nouvelle entreprise :").upper()
@@ -107,22 +98,21 @@ def ajouter_entreprise_dialog():
                 sauvegarder_entreprises(st.session_state.liste_entreprises)
                 st.success(f"'{nouveau_nom}' ajouté.")
                 st.rerun()
-            else:
-                st.error("Existe déjà.")
+            else: st.error("Existe déjà.")
 
 @st.dialog("Supprimer une entreprise")
 def supprimer_entreprise_dialog():
     choix = st.selectbox("Entreprise à supprimer", options=st.session_state.liste_entreprises)
     if st.button("Confirmer la suppression", use_container_width=True):
-        st.session_state.liste_entreprises.remove(choix)
-        sauvegarder_entreprises(st.session_state.liste_entreprises)
-        st.rerun()
+        if choix in st.session_state.liste_entreprises:
+            st.session_state.liste_entreprises.remove(choix)
+            sauvegarder_entreprises(st.session_state.liste_entreprises)
+            st.rerun()
 
 @st.dialog("Copier un produit existant")
 def copier_produit_dialog():
     if not st.session_state.liste_produits_manuels:
-        st.write("Aucun produit à copier.")
-        return
+        st.write("Aucun produit à copier."); return
     options = [f"{idx+1}. {p['modele'] or 'Sans nom'}" for idx, p in enumerate(st.session_state.liste_produits_manuels)]
     choix = st.selectbox("Produit à dupliquer", options)
     index = options.index(choix)
@@ -130,19 +120,15 @@ def copier_produit_dialog():
         st.session_state.liste_produits_manuels.append(copy.deepcopy(st.session_state.liste_produits_manuels[index]))
         st.rerun()
 
-# --- SIDEBAR : PARAMÈTRES ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("Paramètres")
-    
-    # Code Magasin
     Magasin = st.text_input("Code Magasin :", value=config_side["magasin"]).upper()
     if Magasin != config_side["magasin"]: sauvegarder_sidebar("magasin", Magasin)
 
-    # Marque
     NOM_COLLECTION = st.selectbox("Nom de la Marque :", 
                                   options=st.session_state.liste_entreprises, 
-                                  index=None, 
-                                  placeholder="Choisissez une marque")
+                                  index=None, placeholder="Choisissez une marque")
 
     col_ent1, col_ent2 = st.columns(2)
     with col_ent1:
@@ -150,39 +136,35 @@ with st.sidebar:
     with col_ent2:
         if st.button("- Supprimer", use_container_width=True): supprimer_entreprise_dialog()
 
-    # Date
+    if st.button("Actualiser la liste", use_container_width=True):
+        charger_entreprises.clear()
+        st.rerun()
+
     date = st.text_input("Date (jj/mm/aaaa) :", value=config_side["date"])
     if date != config_side["date"]: sauvegarder_sidebar("date", date)
 
-    # Saison
     saison = st.text_input("Saison :", value=config_side["saison"], placeholder = "Entrez la saison").upper()
     if saison != config_side["saison"]: sauvegarder_sidebar("saison", saison)
 
-    # Origine
     origine = st.text_input("Origine :", value=config_side["origine"], placeholder = "Entrez l'origine").upper()
     if origine != config_side["origine"]: sauvegarder_sidebar("origine", origine)
     
     st.divider()
-    
-    # Indicateur AR
     AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=int(config_side["ar"]))
     if AR != config_side["ar"]: sauvegarder_sidebar("ar", AR)
 
-    # Devise
     Devise = st.text_input("Devise :", value=config_side["devise"]).upper()
     if Devise != config_side["devise"]: sauvegarder_sidebar("devise", Devise)
 
-    # Poids
     Poids = st.text_input("Poids :", value=config_side["poids"])
     if Poids != config_side["poids"]: sauvegarder_sidebar("poids", Poids)
-    if Poids and not est_numerique(Poids):
-        st.error("Le Poids doit être un nombre.")
+    if Poids and not est_numerique(Poids): st.error("Le Poids doit être un nombre.")
 
-    # Visible Web
     VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=int(config_side["visible_web"]))
     if VisibleWeb != config_side["visible_web"]: sauvegarder_sidebar("visible_web", VisibleWeb)
 
 # --- SAISIES PRODUITS ---
+# ... (le reste du code pour l'affichage des produits reste identique)
 st.subheader("Liste des produits")
 
 for i, produit in enumerate(st.session_state.liste_produits_manuels):
@@ -238,7 +220,8 @@ with col_p3:
 
 st.divider()
 
-# --- VÉRIFICATION GLOBALE ---
+# --- VÉRIFICATION GLOBALE ET EXPORT ---
+# (Reste identique à ton code original)
 poids_valide = est_numerique(Poids)
 params_remplis = all([Magasin, NOM_COLLECTION, Devise, Poids, date, saison, origine]) and poids_valide
 
@@ -249,18 +232,14 @@ else:
     for p in st.session_state.liste_produits_manuels:
         champs_p = [p.get("modele"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"), p.get("famille"), p.get("designation")]
         if any(v == "" or v is None for v in champs_p):
-            produits_valides = False
-            break
+            produits_valides = False; break
         if not est_numerique(p["prix_achat"]) or not est_numerique(p["prix_ttc"], autoriser_etoile=True):
-            produits_valides = False
-            break
+            produits_valides = False; break
         if any(s["taille"] == "" for s in p["stocks"]):
-            produits_valides = False
-            break
+            produits_valides = False; break
 
 ok = params_remplis and produits_valides
 
-# --- EXPORT .TXT ---
 if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=True):
     lignes_finales = []
     for produit in st.session_state.liste_produits_manuels:
@@ -272,10 +251,8 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
                 pa_entier = float(pa.replace(",", "."))
                 coeff = float(pttc.replace("*", "").replace(",", "."))
                 pttc_final = str(int(pa_entier * coeff))
-            except:
-                pttc_final = pttc
-        else:
-            pttc_final = pttc
+            except: pttc_final = pttc
+        else: pttc_final = pttc
 
         designation = produit["designation"] if produit["designation"] else produit["ssfamille"]
 
@@ -287,10 +264,15 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
                 str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
                 "","","","","","","","","","","","","","","","\t"
             ]
-            lignes_finales.append("\t".join(data_row))
+        clean_row = [str(champ).strip() for champ in data_row]
+        lignes_finales.append("\t".join(clean_row))
 
     if lignes_finales:
         st.success(f"Export réussi.")
-        st.download_button("Télécharger l'export .txt", "\n".join(lignes_finales), f"export_{NOM_COLLECTION}.txt")
-    else:
-        st.error("Aucune ligne générée.")
+        contenu_crlf = "\r\n".join(lignes_finales)
+        st.download_button(
+            label="Télécharger l'export .txt", 
+            data=contenu_crlf, 
+            file_name=f"export_{NOM_COLLECTION}.txt",
+            mime="text/plain"
+        )
