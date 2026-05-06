@@ -1,4 +1,6 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 import json
 import os
 from datetime import datetime
@@ -9,23 +11,32 @@ st.set_page_config(page_title="ExtracteurDeProduit", layout="wide")
 st.title("Extracteur de Produits")
 st.divider()
 
-# --- GESTION DES FICHIERS JSON ---
-DB_FILE = "marques.json"
-SIDEBAR_FILE = "sidebar.json"
+# --- GESTION GOOGLE SHEETS AVEC CACHE ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
+@st.cache_data(ttl=600)
 def charger_entreprises():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        initiales = ["ESSENTIAL", "MEXICANA"]
-        initiales.sort()
-        sauvegarder_entreprises(initiales)
-        return initiales
+    try:
+        # On lit le sheet (l'URL est dans le secrets.toml)
+        df = conn.read(worksheet="Feuille1", ttl=0)
+        liste = df["Marque"].dropna().unique().tolist()
+        liste.sort()
+        return liste
+    except Exception as e:
+        st.error(f"Erreur Google Sheet: {e}")
+        return ["ESSENTIAL", "MEXICANA"]
 
 def sauvegarder_entreprises(liste):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(liste, f, ensure_ascii=False, indent=4)
+    try:
+        new_df = pd.DataFrame({"Marque": liste})
+        conn.update(worksheet="Feuille1", data=new_df)
+        # On vide le cache pour que la liste se mette à jour au prochain appel
+        charger_entreprises.clear()
+    except Exception as e:
+        st.error(f"Erreur sauvegarde Sheet: {e}")
+
+# --- GESTION DES FICHIERS JSON ---
+SIDEBAR_FILE = "sidebar.json"
 
 def charger_sidebar():
     if os.path.exists(SIDEBAR_FILE):
@@ -48,8 +59,8 @@ def est_numerique(valeur):
     return temp.replace('.', '', 1).isdigit()
 
 # --- INITIALISATION SESSION STATE ---
-if "liste_entreprises" not in st.session_state:
-    st.session_state.liste_entreprises = charger_entreprises()
+# Utilisation de la fonction cachée
+st.session_state.liste_entreprises = charger_entreprises()
 
 config_side = charger_sidebar()
 
@@ -69,9 +80,10 @@ def ajouter_entreprise_dialog():
 def supprimer_entreprise_dialog():
     choix = st.selectbox("Entreprise à supprimer", options=st.session_state.liste_entreprises)
     if st.button("Confirmer la suppression", use_container_width=True):
-        st.session_state.liste_entreprises.remove(choix)
-        sauvegarder_entreprises(st.session_state.liste_entreprises)
-        st.rerun()
+        if choix in st.session_state.liste_entreprises:
+            st.session_state.liste_entreprises.remove(choix)
+            sauvegarder_entreprises(st.session_state.liste_entreprises)
+            st.rerun()
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -89,6 +101,10 @@ with st.sidebar:
         if st.button("+ Ajouter", use_container_width=True): ajouter_entreprise_dialog()
     with col2: 
         if st.button("- Supprimer", use_container_width=True): supprimer_entreprise_dialog()
+
+    if st.button("Actualiser la liste", use_container_width=True):
+        charger_entreprises.clear()
+        st.rerun()
 
     date = st.text_input("Date (jj/mm/aaaa) :", value=config_side["date"])
     if date != config_side["date"]: sauvegarder_sidebar("date", date)
