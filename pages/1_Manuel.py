@@ -304,6 +304,6 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
         st.download_button(
             label="Télécharger l'export .txt", 
             data="\r\n".join(lignes_finales), 
-            file_name=f"export_{NOM_COLLECTION}_{date_final}.txt",
+            file_name=f"{origine}_{NOM_COLLECTION}_{date_final}.txt",
             mime="text/plain"
         )
