@@ -4,12 +4,27 @@ import pandas as pd
 import copy
 import json
 import os
+import re
+import unicodedata
 from datetime import datetime
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="GestionnaireDeProduit", layout="wide")
 
 st.title("Gestionnaire de Produits")
+
+# --- FONCTION DE NETTOYAGE DES CARACTÈRES ---
+def nettoyer_texte(texte):
+    if not texte or not isinstance(texte, str):
+        return texte
+    # 1. On retire les accents (Normalisation NFD)
+    texte_sans_accents = ''.join(
+        c for c in unicodedata.normalize('NFD', texte)
+        if unicodedata.category(c) != 'Mn'
+    )
+    # 2. On retire tout ce qui n'est pas lettre, chiffre ou espace
+    texte_propre = re.sub(r'[^a-zA-Z0-9\s]', '', texte_sans_accents)
+    return texte_propre.strip()
 
 # --- GESTION GOOGLE SHEETS AVEC CACHE ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -119,6 +134,14 @@ def copier_produit_dialog():
 
 # --- SIDEBAR ---
 with st.sidebar:
+    st.header("Mode de traitement")
+    MODE_TRAITEMENT = st.radio(
+        "Choisissez l'opération :",
+        ["Réception de marchandise", "Commande"],
+        index=0
+    )
+    st.divider()
+
     st.header("Paramètres")
     Magasin = st.text_input("Code Magasin :", value=config_side["magasin"]).upper()
     if Magasin != config_side["magasin"]: sauvegarder_sidebar("magasin", Magasin)
@@ -137,39 +160,43 @@ with st.sidebar:
         charger_entreprises.clear()
         st.rerun()
 
-    date = st.text_input("Date (jj/mm/aaaa) :", value=datetime.now().strftime("%d/%m/%Y"))
+    date_final = st.text_input("Date (jj/mm/aaaa) :", value=datetime.now().strftime("%d/%m/%Y"))
 
     saison = st.text_input("Saison :", value=config_side["saison"], placeholder = "Entrez la saison").upper()
     if saison != config_side["saison"]: sauvegarder_sidebar("saison", saison)
 
     origine = st.text_input("Origine :", value=config_side["origine"], placeholder = "Entrez l'origine").upper()
     if origine != config_side["origine"]: sauvegarder_sidebar("origine", origine)
-    
-    st.divider()
-    AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=int(config_side["ar"]))
-    if AR != config_side["ar"]: sauvegarder_sidebar("ar", AR)
 
-    Devise = st.text_input("Devise :", value=config_side["devise"]).upper()
-    if Devise != config_side["devise"]: sauvegarder_sidebar("devise", Devise)
+    # Initialisation des variables pour éviter les erreurs de définition hors bloc
+    AR, Devise, Poids, VisibleWeb = 1, "EUR", "0,7", 1
 
-    Poids = st.text_input("Poids :", value=config_side["poids"])
-    if Poids != config_side["poids"]: sauvegarder_sidebar("poids", Poids)
-    if Poids and not est_numerique(Poids): st.error("Le Poids doit être un nombre.")
+    if MODE_TRAITEMENT == "Réception de marchandise":
+        st.divider()
+        AR = st.number_input("Indicateur AR (0/1):", min_value=0, max_value=1, value=int(config_side["ar"]))
+        if AR != config_side["ar"]: sauvegarder_sidebar("ar", AR)
 
-    VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=int(config_side["visible_web"]))
-    if VisibleWeb != config_side["visible_web"]: sauvegarder_sidebar("visible_web", VisibleWeb)
+        Devise = st.text_input("Devise :", value=config_side["devise"]).upper()
+        if Devise != config_side["devise"]: sauvegarder_sidebar("devise", Devise)
 
-# --- FRAGMENT POUR LA GESTION DES PRODUITS ---
+        Poids = st.text_input("Poids :", value=config_side["poids"])
+        if Poids != config_side["poids"]: sauvegarder_sidebar("poids", Poids)
+        if Poids and not est_numerique(Poids): st.error("Le Poids doit être un nombre.")
+
+        VisibleWeb = st.number_input("Visible Web (0/1):", min_value=0, max_value=1, value=int(config_side["visible_web"]))
+        if VisibleWeb != config_side["visible_web"]: sauvegarder_sidebar("visible_web", VisibleWeb)
+
+# --- CORPS DE L'APPLICATION ---
 @st.fragment
 def afficher_zone_produits():
-    st.subheader("Liste des produits")
+    st.subheader(f"Liste des produits ({MODE_TRAITEMENT})")
 
     for i, produit in enumerate(st.session_state.liste_produits_manuels):
-        # L'expander est maintenant toujours ouvert par défaut
         with st.expander(f"Produit n°{i+1} : {produit.get('modele', '') or 'Nouveau'}", expanded=True):
             c1, c2 = st.columns(2)
             produit["modele"] = c1.text_input("Modèle", value=produit.get("modele", ""), key=f"mod_{i}").upper()
             produit["designation"] = c2.text_input("Designation :", value = produit.get("designation", ""), key=f"desi_{i}").upper()
+            
             c3, c4 = st.columns(2)
             produit["couleur"] = c3.text_input("Couleur", value=produit.get("couleur", ""), key=f"coul_{i}").upper()
             produit["matiere"] = c4.text_input("Matière", value=produit.get("matiere", ""), key=f"mat_{i}").upper()
@@ -183,12 +210,13 @@ def afficher_zone_produits():
             if produit.get("prix_ttc") and not est_numerique(produit["prix_ttc"], autoriser_etoile=True):
                 st.error("Le Prix TTC doit être un nombre.")
 
-            c7, c8 = st.columns(2)
-            produit["famille"] = c7.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
-            produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
-
-            c9, c10 = st.columns(2)
-            produit["rayon"] = st.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
+            if MODE_TRAITEMENT == "Réception de marchandise":
+                c7, c8 = st.columns(2)
+                produit["famille"] = c7.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
+                produit["ssfamille"] = c8.text_input("Sous Famille :", value = produit.get("ssfamille", ""), key=f"ssfam_{i}").upper()
+                produit["rayon"] = st.text_input("Rayon :", value = produit.get("rayon", ""), key=f"ray_{i}").upper()
+            else:
+                produit["famille"] = st.text_input("Famille :", value = produit.get("famille", ""),key=f"fami_{i}").upper()
 
             st.markdown("**Tailles et Quantités**")
             cb1, cb2 = st.columns(2)
@@ -220,63 +248,62 @@ def afficher_zone_produits():
             supprimer_produit()
             st.rerun(scope="fragment")
 
-# --- APPEL DU FRAGMENT ---
 afficher_zone_produits()
-
 st.divider()
 
-# --- VÉRIFICATION GLOBALE ET EXPORT ---
-poids_valide = est_numerique(Poids)
-params_remplis = all([Magasin, NOM_COLLECTION, Devise, Poids, date, saison, origine]) and poids_valide
-
-produits_valides = True
-if not st.session_state.liste_produits_manuels:
-    produits_valides = False
-else:
+# --- VÉRIFICATION GLOBALE ---
+produits_valides = len(st.session_state.liste_produits_manuels) > 0
+if produits_valides:
     for p in st.session_state.liste_produits_manuels:
-        champs_p = [p.get("modele"), p.get("prix_achat"), p.get("prix_ttc"), p.get("ssfamille"), p.get("rayon"), p.get("famille"), p.get("designation")]
-        if any(v == "" or v is None for v in champs_p):
-            produits_valides = False; break
-        if not est_numerique(p["prix_achat"]) or not est_numerique(p["prix_ttc"], autoriser_etoile=True):
-            produits_valides = False; break
-        if any(s["taille"] == "" for s in p["stocks"]):
+        champs = [p.get("modele"), p.get("prix_achat"), p.get("prix_ttc"), p.get("famille")]
+        if MODE_TRAITEMENT == "Réception de marchandise":
+            champs.extend([p.get("ssfamille"), p.get("rayon")])
+        if any(v == "" or v is None for v in champs) or any(s["taille"] == "" for s in p["stocks"]):
             produits_valides = False; break
 
-ok = params_remplis and produits_valides
+params_ok = all([Magasin, NOM_COLLECTION, date_final, saison, origine])
+ok = params_ok and produits_valides
 
+# --- GÉNÉRATION ---
 if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=True):
     lignes_finales = []
     for produit in st.session_state.liste_produits_manuels:
-        pa = produit["prix_achat"]
-        pttc = produit["prix_ttc"]
+        pa = str(produit["prix_achat"]).replace(',', '.')
+        pttc_raw = str(produit["prix_ttc"]).replace(',', '.')
         
-        if "*" in pttc:
-            try:
-                pa_entier = float(pa.replace(",", "."))
-                coeff = float(pttc.replace("*", "").replace(",", "."))
-                pttc_final = str(int(pa_entier * coeff))
-            except: pttc_final = pttc
-        else: pttc_final = pttc
+        if "*" in pttc_raw:
+            try: pttc_final = str(int(float(pa) * float(pttc_raw.replace("*", ""))))
+            except: pttc_final = pttc_raw
+        else: pttc_final = pttc_raw
 
-        designation = produit["designation"] if produit["designation"] else produit["ssfamille"]
-
+        designation_raw = produit["designation"] if produit["designation"] else (produit["ssfamille"] if MODE_TRAITEMENT == "Réception de marchandise" else produit["famille"])
+        
         for stock in produit["stocks"]:
-            data_row = [
-                Magasin, NOM_COLLECTION, date, origine, produit["famille"], saison, produit["modele"], designation,
-                produit["matiere"], produit["couleur"], stock["taille"], pa, pttc_final, str(stock["qte"]), "",
-                produit["ssfamille"], produit.get("rayon", ""), produit["modele"], "", "", "", "", "", "", "\t",
-                str(AR), Devise, "", Poids, "", "","","","","","","","","\t", str(VisibleWeb),
-                "","","","","","","","","","","","","","","","\t"
-            ]
-            clean_row = [str(champ).strip() for champ in data_row]
-            lignes_finales.append("\t".join(clean_row))
+            if MODE_TRAITEMENT == "Réception de marchandise":
+                data_row = [
+                    nettoyer_texte(Magasin), nettoyer_texte(NOM_COLLECTION), date_final, nettoyer_texte(origine),
+                    nettoyer_texte(produit["famille"]), nettoyer_texte(saison), nettoyer_texte(produit["modele"]),
+                    nettoyer_texte(designation_raw), nettoyer_texte(produit["matiere"]), nettoyer_texte(produit["couleur"]),
+                    nettoyer_texte(str(stock["taille"]).upper()), pa, pttc_final, str(stock["qte"]), "",
+                    nettoyer_texte(produit["ssfamille"]), nettoyer_texte(produit.get("rayon", "")), nettoyer_texte(produit["modele"]),
+                    "", "", "", "", "", "", "\t", str(AR), nettoyer_texte(Devise), "", str(Poids).replace(',', '.'), 
+                    "", "","","","","","","","","\t", str(VisibleWeb), "","","","","","","","","","","","","","","","\t"
+                ]
+            else:
+                data_row = [
+                    nettoyer_texte(Magasin), nettoyer_texte(NOM_COLLECTION), date_final, nettoyer_texte(origine),
+                    nettoyer_texte(produit["famille"]), nettoyer_texte(saison), nettoyer_texte(produit["modele"]),
+                    nettoyer_texte(designation_raw), nettoyer_texte(produit["matiere"]), nettoyer_texte(produit["couleur"]),
+                    nettoyer_texte(str(stock["taille"]).upper()), pa, pttc_final, str(stock["qte"])
+                ]
+            
+            lignes_finales.append("\t".join([str(x).strip() for x in data_row]))
 
     if lignes_finales:
-        st.success(f"Export réussi.")
-        contenu_crlf = "\r\n".join(lignes_finales)
+        st.success("Export réussi.")
         st.download_button(
             label="Télécharger l'export .txt", 
-            data=contenu_crlf, 
-            file_name=f"export_{NOM_COLLECTION}.txt",
+            data="\r\n".join(lignes_finales), 
+            file_name=f"export_{NOM_COLLECTION}_{date_final}.txt",
             mime="text/plain"
         )
