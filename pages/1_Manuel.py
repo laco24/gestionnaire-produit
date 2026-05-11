@@ -265,7 +265,7 @@ params_ok = all([Magasin, NOM_COLLECTION, date_final, saison, origine])
 ok = params_ok and produits_valides
 
 # --- GÉNÉRATION ---
-if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=True):
+if st.button("GÉNÉRER LE FICHIER .TXT", disabled=False, use_container_width=True):
     lignes_finales = []
     for produit in st.session_state.liste_produits_manuels:
         pa = str(produit["prix_achat"]).replace(',', '.')
