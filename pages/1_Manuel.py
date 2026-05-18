@@ -132,6 +132,16 @@ def copier_produit_dialog():
         st.session_state.liste_produits_manuels.append(copy.deepcopy(st.session_state.liste_produits_manuels[index]))
         st.rerun()
 
+@st.dialog("Vider la liste")
+def vider_liste_dialog():
+    st.warning("Êtes-vous sûr de vouloir supprimer tous les produits ?")
+    col1, col2 = st.columns(2)
+    if col1.button("Oui, tout supprimer", use_container_width=True, type="primary"):
+        st.session_state.liste_produits_manuels = []
+        st.rerun()
+    if col2.button("Annuler", use_container_width=True):
+        st.rerun()
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("Mode de traitement")
@@ -235,7 +245,8 @@ def afficher_zone_produits():
                 stock["qte"] = col_q.number_input(f"Quantité", value=stock["qte"], key=f"qte_{i}_{j}")
 
     st.divider()
-    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1, col_p2 = st.columns(2)
+    col_p3, col_p4 = st.columns(2)
     with col_p1:
         if st.button("AJOUTER UN NOUVEAU PRODUIT", use_container_width=True):
             ajouter_produit()
@@ -247,6 +258,17 @@ def afficher_zone_produits():
         if st.button("SUPPRIMER LE DERNIER PRODUIT", use_container_width=True):
             supprimer_produit()
             st.rerun(scope="fragment")
+    with col_p4:
+        if st.button("VIDER TOUTE LA LISTE", use_container_width=True, type="secondary"):
+            vider_liste_dialog()
+
+    st.divider()
+    total_modeles = len(st.session_state.liste_produits_manuels)
+    total_pieces = sum(int(s["qte"]) for p in st.session_state.liste_produits_manuels for s in p["stocks"] if str(s["qte"]).isdigit())
+    
+    col_compteur1, col_compteur2 = st.columns(2)
+    col_compteur1.metric("Nombre de modèles", total_modeles)
+    col_compteur2.metric("Quantité totale", total_pieces)
 
 afficher_zone_produits()
 st.divider()
@@ -282,7 +304,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
             if MODE_TRAITEMENT == "Réception de marchandise":
                 data_row = [
                     nettoyer_texte(Magasin), nettoyer_texte(NOM_COLLECTION), date_final, nettoyer_texte(origine),
-                    nettoyer_texte(produit["famille"]), nettoyer_texte(saison), nettoyer_texte(produit["modele"]),
+                    nettoyer_texte(produit["famille"]), nettoyer_texte(saison), produit["modele"],
                     nettoyer_texte(designation_raw), nettoyer_texte(produit["matiere"]), nettoyer_texte(produit["couleur"]),
                     nettoyer_texte(str(stock["taille"]).upper()), pa, pttc_final, str(stock["qte"]), "",
                     nettoyer_texte(produit["ssfamille"]), nettoyer_texte(produit.get("rayon", "")), nettoyer_texte(produit["modele"]),
@@ -292,7 +314,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
             else:
                 data_row = [
                     nettoyer_texte(Magasin), nettoyer_texte(NOM_COLLECTION), date_final, nettoyer_texte(origine),
-                    nettoyer_texte(produit["famille"]), nettoyer_texte(saison), nettoyer_texte(produit["modele"]),
+                    nettoyer_texte(produit["famille"]), nettoyer_texte(saison), produit["modele"],
                     nettoyer_texte(designation_raw), nettoyer_texte(produit["matiere"]), nettoyer_texte(produit["couleur"]),
                     nettoyer_texte(str(stock["taille"]).upper()), pa, pttc_final, str(stock["qte"])
                 ]
