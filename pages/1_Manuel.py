@@ -308,7 +308,7 @@ if st.button("GÉNÉRER LE FICHIER .TXT", disabled=not ok, use_container_width=T
                     nettoyer_texte(designation_raw), nettoyer_texte(produit["matiere"]), nettoyer_texte(produit["couleur"]),
                     nettoyer_texte(str(stock["taille"]).upper()), pa, pttc_final, str(stock["qte"]), "",
                     nettoyer_texte(produit["ssfamille"]), nettoyer_texte(produit.get("rayon", "")), nettoyer_texte(produit["modele"]),
-                    "", "", "", "", "", "", "\t", str(AR), nettoyer_texte(Devise), "", str(Poids).replace(',', '.'), 
+                    "", "", "", "", "", "", "", "", str(AR), nettoyer_texte(Devise), "", str(Poids).replace(',', '.'), 
                     "", "","","","","","","","","\t", str(VisibleWeb), "","","","","","","","","","","","","","","","\t"
                 ]
             else:
