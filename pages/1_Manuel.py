@@ -267,7 +267,7 @@ def afficher_zone_produits():
     total_pieces = sum(int(s["qte"]) for p in st.session_state.liste_produits_manuels for s in p["stocks"] if str(s["qte"]).isdigit())
     
     col_compteur1, col_compteur2 = st.columns(2)
-    col_compteur1.metric("Nombre de modèles", total_modeles)
+    col_compteur1.metric("Nombre de produits", total_modeles)
     col_compteur2.metric("Quantité totale", total_pieces)
 
 afficher_zone_produits()
